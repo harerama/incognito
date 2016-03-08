@@ -71,7 +71,10 @@ class post_listener implements EventSubscriberInterface
 		if ((int) $this->request->variable('mod_anonymous', 0, true) != 0)
 		{	
 			//set all poster info to ANONYMOUS - store the real poster id for admin tracking reasons
-			$post_sql_data[POSTS_TABLE]['sql']['real_poster_id'] = $post_sql_data[POSTS_TABLE]['sql']['poster_id'];
+			$posterId = $post_sql_data[POSTS_TABLE]['sql']['poster_id'];
+			$realPosterId = $post_sql_data[POSTS_TABLE]['sql']['real_poster_id'];
+			if ( $posterId != ANONYMOUS && $realPosterId == null)
+				$post_sql_data[POSTS_TABLE]['sql']['real_poster_id'] = $post_sql_data[POSTS_TABLE]['sql']['poster_id'];
 			$post_sql_data[POSTS_TABLE]['sql']['poster_id'] = ANONYMOUS;
 			$post_sql_data[POSTS_TABLE]['sql']['post_username'] = ($this->config['incognito_name'] != '' ? $this->config['incognito_name'] : '');
 			
