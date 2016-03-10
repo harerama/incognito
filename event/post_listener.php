@@ -17,10 +17,11 @@ class post_listener implements EventSubscriberInterface
 {
 	static public function getSubscribedEvents()
 	{
-		return array(
+		return array(		
 				'core.user_setup'					=> 'load_language_on_setup',
 				'core.posting_modify_template_vars'	=> 'modify_posting_template',
 				'core.submit_post_modify_sql_data'	=> 'modify_post_sql_data',
+				'core.permissions'					=> 'add_permissions',
 		);
 	}
 	
@@ -32,12 +33,13 @@ class post_listener implements EventSubscriberInterface
 	 * @param \phpbb\user				$user		User object
 	 * @param \phpbb\request\request	$request	Request object
 	 */
-	public function __construct(\phpbb\config\config $config, \phpbb\template\template $template, \phpbb\user $user, \phpbb\request\request $request)
+	public function __construct(\phpbb\config\config $config, \phpbb\template\template $template, \phpbb\user $user, \phpbb\request\request $request, \phpbb\auth\auth $auth)
 	{
 		$this->config = $config;
 		$this->template = $template;
 		$this->user = $user;
 		$this->request = $request;
+		$this->auth = $auth;
 	}
 	
 	public function load_language_on_setup($event)
@@ -52,21 +54,28 @@ class post_listener implements EventSubscriberInterface
 	
 	public function modify_posting_template($event)
 	{
-		if ((int) $this->request->variable('mod_anonymous', 0, true) != 0)
+		if ($this->auth->acl_get('f_allow_anonymous_posting', $event['forum_id']))
 		{
+			if ((int) $this->request->variable('mod_anonymous', 0, true) != 0)
+			{
+				$this->template->assign_vars(array(
+					'S_ANONYM_CHECKED'	=> 'checked="checked"',
+				));
+			}
+			
 			$this->template->assign_vars(array(
-				'S_ANONYM_CHECKED'	=> 'checked="checked"',
+					'INCOGNITO_ENABLED'	=> $this->config['incognito_enabled'],
 			));
 		}
-		
-		$this->template->assign_vars(array(
-				'INCOGNITO_ENABLED'	=> $this->config['incognito_enabled'],
-		));
 	}
 	
 	public function modify_post_sql_data($event)
 	{	
 		$post_sql_data = $event['sql_data'];
+		if (!$this->auth->acl_get('f_allow_anonymous_posting', $event['data']['forum_id']))
+		{
+			 trigger_error('NOT_AUTHORISED');
+		}
 		
 		if ((int) $this->request->variable('mod_anonymous', 0, true) != 0)
 		{	
@@ -110,5 +119,14 @@ class post_listener implements EventSubscriberInterface
 		}
 		
 		$event['sql_data'] = $post_sql_data;
+	}
+	
+	public function add_permissions($event)
+	{
+		// We redefine f_edit so its new meaning is reflected in the text of the permissions
+		$event['permissions'] = array_merge($event['permissions'], array(
+			// Forum perms
+			'f_allow_anonymous_posting'			=> array('lang' => 'ACL_F_ALLOW_ANONYMOUS_POSTING', 'cat' => 'post'),
+		));
 	}
 }

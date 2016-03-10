@@ -6,5 +6,6 @@ services:
             - @template
             - @user
             - @request
+            - @auth
         tags:
             - { name: event.listener }
